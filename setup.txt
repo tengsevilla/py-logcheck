@@ -1,0 +1,21 @@
+Prerequisite:
+1. Download the latest python version.
+https://www.python.org/downloads/
+
+2. Open command line and run the scripts below
+pip install beautifulsoup4
+pip install requests
+
+3. Copy and paste the script under your C:\ drive.
+
+4. Add the scripts to your computer
+Go to Control panel > System > Advance System Settings > Advance Tab > Environment Variables.
+Under System Variables find "Path" and click on edit.
+Add the following directory. "C:\MyPythonScripts
+
+5. To test your connection open command line and type in test
+You should see an output "Successful"
+
+6. Run logchecker
+
+6.1 Open command line and type in logchecker then drag and drop the desired log folder you want to investigate.
