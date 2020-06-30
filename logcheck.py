@@ -1,78 +1,145 @@
 #! python3
-import os
 import tarfile
-import io
-import re
 import sys
+import os
+import time
+import shutil #Remove folder 
+import rmnt_log #RMNT Component
 
-# Global declarations
-#dirLog = sys.argv[1] # command line argument.
-dirLog = 'C:\\Users\\Anthony S\\Documents\\WFH\\V7A6400539_202004071341\\log'
-dirLogExtracted = dirLog+'\\files\\debug_log\\RMNT_EXTRACTED'
+##########----Global declarations-------###########
 
-# Customize for RMNT checking.
-tarList_RMNT = [ 'usv_mnt_tmms.tar.gz', 'ifs_rmnt_log.tar.gz']
-fileList_RMNT = ['all.log', 'stacktrace.svc_proc.log','ifs_rmnt.log' 'usv_mnt.log', 'usv_mnt_tmms_comm.log', 'usv_mnt_tmms_exec.log']
-listOfFiles = list()
+log_1 = sys.argv[1] #because log 1 cannot be empty
+#log_1 = 'E:\\Dump files\\October\\2V6-3599\\Iter2 Failed FWUpdate\\log.tar.gz'
+#sys.argv[1] # command line argument.
+#Example: log_1 = C:\Users\Raffy\Desktop\WFH\TEST_PYTHON\log.tar.gztest
+try: log_2 = sys.argv[2]
+except: log_2 = "empty"
+try: log_3 = sys.argv[3]
+except: log_3 = "empty"
+try: log_4 = sys.argv[4]
+except: log_4 = "empty"
+try: log_5 = sys.argv[5]
+except: log_5 = "empty"
 
-summary = open(dirLog+'\\LOG_CHECKER.txt', 'w')
-summary.write('Checking log: '+ dirLog)
-summary.close()
+logList = [log_1,log_2,log_3,log_4,log_5]
 
-# Extract all tar.gz related to component
-summary = open(dirLog+'\\LOG_CHECKER.txt', 'a')
-summary.write('\n\nExtracting files...')
-print('\n\nExtracting files...')
-for (dirpath, dirnames, filenames) in os.walk(dirLog):
-    for file in filenames:
-        if file.endswith('.gz'):
-            for component_gz in tarList_RMNT:
-                if(file == component_gz):
-                    summary.write('\nExtract OK: '+file)
-                    print('Extract OK: '+file)
-                    tf = tarfile.open(dirpath+'\\'+file, "r:gz")
-                    tf.extractall(dirpath+'\\RMNT_EXTRACTED\\'+file)
-                    tf.close()
-summary.write('\nExtracted to -> files\debug_log\RMNT_EXTRACTED')
-print('Extracted to -> files\debug_log\RMNT_EXTRACTED')
+archList = ['WC3','WC4s']
+
+componentList = ['RMNT','KSF','DCM']
+
+##########---------FUNCTIONS------------###########
+def archInput():
+    arch = 0
+    print('\n===============================')
+    print('Select architecture:\n1 - WC3\n2 - WC4s')
+    arch = int(input('Please enter the number: '))
+    if arch == 1: return 0
+    elif arch == 2: return 1
+    else:
+        print("Your input is invalid!!")
+
+def componentInput():
+    component = 0
+    print('\n===============================')
+    print('\nSelect component:\n1 - RMNT\n2 - KSF\n3 - DCM')
+    component = int(input("Please enter the number: "))
+    if component == 1: return 0
+    elif component == 2: return 1
+    elif component == 3: return 2
+    else:
+        print("Your input is invalid!!")
 
 
-# Get all related files of RMNT component
-summary.write('\n\nGetting all related files of the component...')
-print('\n\nGetting all related files of the component...')
-for (dirpath, dirnames, filenames) in os.walk(dirLog):
-    for file in filenames:
-            if file.endswith('.log'):
-                for component_file in fileList_RMNT:
-                    if(file == component_file):
-                        summary.write('\nGet OK: '+ component_file)
-                        print('Get OK: '+ component_file)
-                        listOfFiles.append(os.path.join(dirpath, file))
-                        #listOfFiles += [os.path.join(dirpath, file) for file in filenames]    
+def main(dirLog,logFileName):
+    summary = open(dirLog+'\\xx_'+logFileName+'.txt', 'w')
+    summary.write('Extracting... '+ logFileName)
+    print('Extracting... '+ logFileName)
+    summary.close()
 
-# Filter all files for errors related to component
-summary.write('\n\nSearching for errors...')
-print('\n\nSearching for errors...')
-for file in listOfFiles:
-    summary.write('\nSearching filename: '+ file)
-    print('Searching filename: '+ file)
-    with io.open(file, 'r', encoding='utf8') as f:
-        text = f.readline()
-        for num, line in enumerate(f, 1): # Line per line checking of code.
-            isExist = re.search('USV_MNT', line) #Check for USV_MNT
-            if(isExist != None):
-                # Modify to complex error checking conditions
-                
-                isExist = re.search('ERR', line) # Search for error.
-                
+    #creating unique directory for the logfile
+    newDir = dirLog+logFileName[:-2]
 
-                # END Modify
-                if(isExist != None): #If found store here
-                    summary.write('\nLINE:['+ str(num+1) +']\n'+ line)
-                    print('LINE:['+ str(num+1) +']\n'+ line)
-                
-summary.close()
-print('\n\n\nCheck done!\n')
-print(dirLog+'\\LOG_CHECKER.txt created for summary')
-#for (dirpath, dirnames, filenames) in os.walk(dirLogExtracted):
-    #listOfFiles += [os.path.join(dirpath, file) for file in filenames]
+    if not os.path.exists(newDir): # if the directory does not exist
+        os.mkdir(newDir) 
+    else: # else overwrite file
+        try:
+            shutil.rmtree(newDir)
+            time.sleep(.5) #delay
+            os.mkdir(newDir)
+        except:
+            print('\n\n\n!!!!!!! ERROR !!!!!!!')
+            print('Can not override the file when it is opened!!!')
+            print('Close the file under '+ newDir +' to proceed')
+            print('\nPlease try again.\n\n')
+            raise
+        
+    #initial extraction of the log file
+    tf = tarfile.open(logFile,"r:gz")
+    tf.extractall(newDir) 
+
+    print("Extraction Finish!")
+    newDirLog = newDir+'\\log' #a new \log directory after initial extraction
+
+    arch = archInput()
+
+    if( int(archList.index('WC3')) == arch ):
+        print("WC3")
+        component = componentInput()
+
+        if( int(componentList.index('RMNT')) == component ):
+            print("WC3-RMNT")
+            rmnt_log.exec(arch,dirLog,newDirLog,summary,logFileName)
+
+        elif( int(componentList.index('KSF')) == component ):
+            print("WC3-KSF")
+
+        elif( int(componentList.index('DCM')) == component ):
+            print("WC3-DCM")
+
+        else:
+            print("End")
+
+
+    elif( int(archList.index('WC4s')) == arch ):
+        print("WC4s")
+        component = componentInput()
+
+        if( int(componentList.index('RMNT')) == component ):
+            print("WC4s-RMNT")
+            rmnt_log.exec(arch,dirLog,newDirLog,summary,logFileName)
+
+        elif( int(componentList.index('KSF')) == component ):
+            print("WC4s-KSF")
+
+        elif( int(componentList.index('DCM')) == component ):
+            print("WC4s-DCM")
+
+        else:
+            print("End")
+
+
+    else:
+        print("End")
+
+    summary.close()
+    print('\n\nLogchecker done...')
+    print('Created a .txt file. Open the file with the provided link below')
+    print(dirLog+"xx_"+logFileName+'.txt'+'')
+    
+    print('\n\n')
+
+
+##########-------MAIN EXECUTION---------###########
+
+for logFile in logList:
+
+    if(logFile != "empty"):
+        dirLog = logFile[:logFile.rfind("\\")] + "\\"
+        #Example: dirLog = C:\Users\Raffy\Desktop\WFH\TEST_PYTHON\
+
+        logFileName = logFile[logFile.rfind("\\"):]
+        logFileName = logFileName[1:]  #to remove \
+        #Example: logFileName = \log.tar.gz
+
+        main(dirLog,logFileName)
+
