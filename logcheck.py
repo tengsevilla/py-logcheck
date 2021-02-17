@@ -5,7 +5,6 @@ import os
 import time
 import shutil #Remove folder 
 import rmnt_log #RMNT Component
-
 ##########----Global declarations-------###########
 
 log_1 = sys.argv[1] #because log 1 cannot be empty

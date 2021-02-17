@@ -42,38 +42,43 @@ output = {
     '0x00000029': { description: 'User Reject', items: [] },
     'others': { description: 'Unfiltered errors', items: [] },
     'fcall': { description: 'FCALL / Segmentation fault', items: [] },
-    '0x210600A1': { description: 'NTC_HTTP_CLIENT_INVALID_PARAM', items: [] },
-    '0x210600A2': { description: 'NTC_HTTP_CLIENT_OUT_OF_RESOURCE', items: [] },
-    '0x210600A3': { description: 'NTC_HTTP_CLIENT_COMMUNICATION_ERROR', items: [] },
-    '0x210600A4': { description: 'NTC_HTTP_CLIENT_PROCESSING', items: [] },
-    '0x210600A5': { description: 'NTC_HTTP_CLIENT_XMPP_LOGIN', items: [] },
-    '0x210600A6': { description: 'NTC_HTTP_CLIENT_INTERNAL_ERROR', items: [] },
-    '0x210600A7': { description: 'NTC_HTTP_CLIENT_AUTHENTICATION_ERROR', items: [] },
-    '0x210600A8': { description: 'NTC_HTTP_CLIENT_REQUEST_ERROR', items: [] },
-    '0x210600A9': { description: 'NTC_HTTP_CLIENT_SERVER_ERROR', items: [] }
+    '0x000000A1': { description: '0xA3 NTC_HTTP_CLIENT_INVALID_PARAM', items: [] },
+    '0x000000A2': { description: '0xA2 NTC_HTTP_CLIENT_OUT_OF_RESOURCE', items: [] },
+    '0x000000A3': { description: '0xA3 NTC_HTTP_CLIENT_COMMUNICATION_ERROR', items: [] },
+    '0x000000A4': { description: '0xA4 NTC_HTTP_CLIENT_PROCESSING', items: [] },
+    '0x000000A5': { description: '0xA5 NTC_HTTP_CLIENT_XMPP_LOGIN', items: [] },
+    '0x000000A6': { description: '0xA6 NTC_HTTP_CLIENT_INTERNAL_ERROR', items: [] },
+    '0x000000A7': { description: '0xA7 NTC_HTTP_CLIENT_AUTHENTICATION_ERROR', items: [] },
+    '0x000000A8': { description: '0xA8 NTC_HTTP_CLIENT_REQUEST_ERROR', items: [] },
+    '0x000000A9': { description: '0xA9 NTC_HTTP_CLIENT_SERVER_ERROR', items: [] }
 
     #'0x00000020': { description: 'YourErrorHere', items: [] }
     
 }
 ###########------------FUNCTIONS----------------############
 
-#output summary
+def logging(summary, description):
+    print(description)
+    summary.write(description)
+    
+#filter error codes
 def output_summary(line, display):
 
-    try:
-        errorValue = re.findall('.x[A-Za-z0-9]{8}|.x[A-Za-z0-9]{4}', line)
-    except:
-        errorValue = ''; #Set to null or do nothing
-    
-    for val in errorValue:
-        try:
-            output[val][items].append([display])
-        except: 
-            fcall = re.search('(Fcode)+', line) # Search for error.
-            if(fcall != None):
-                output['fcall'][items].append([display])
-    
+    fcall = re.search('(Fcode)+', line) # Search for error.
 
+    if(fcall != None):
+        output['fcall'][items].append([display])
+        return
+    else:
+        errorValue = re.findall('.x[A-Za-z0-9]{8}', line) #gets all matches
+        if(len(errorValue) == 0): return
+        
+        for val in errorValue:
+            tmp_val = "0x000000"+str(val[-2:])
+            # try catch block for key error issue.
+            try: output[tmp_val][items].append([display])
+            except: pass
+                
 
 # Extract all tar.gz related to component
 def extract(newDirLog,summary,tarList_RMNT):
@@ -82,8 +87,7 @@ def extract(newDirLog,summary,tarList_RMNT):
             if file.endswith('.gz'):
                 for component_gz in tarList_RMNT:
                     if(file == component_gz):
-                        summary.write('\nExtract OK: '+file)
-                        print('Extract OK: '+file)
+                        logging(summary, '\nExtract OK: '+file)
                         tf = tarfile.open(dirpath+'\\'+file, "r:gz")
                         tf.extractall(dirpath+'\\RMNT_EXTRACTED\\'+file)
                         tf.close()
@@ -95,9 +99,27 @@ def getfiles(newDirLog,summary,fileList_RMNT,listOfFiles):
                 if file.endswith('.log'):
                     for component_file in fileList_RMNT:
                         if(file == component_file):
-                            summary.write('\nGet OK: '+ component_file)
-                            print('Get OK: '+ component_file)
+                            logging(summary, '\nGet OK: '+ component_file)
                             listOfFiles.append(os.path.join(dirpath, file))
+
+# Get all related files of RMNT component
+def getME_TMMS_DATA(newDirLog,summary):
+    for (dirpath, dirnames, filenames) in os.walk(newDirLog):
+        for file in filenames:
+                if file.endswith('.log'):
+                                #WC4 log                                            #WC3 log
+                    if(file == 'dbs_me_debug_status_member_svc_proc.log' or file == 'dbs_me_debug_status_member_sysbase_proc.log'):
+                        logging(summary, 'dbs_me file found! \n')
+                        with io.open(os.path.join(dirpath, file), 'r', encoding='ISO-8859-1') as f:
+                            for num, line in enumerate(f, 1): # Line per line checking of code.
+                                isTMMS = re.search('(TMMS)', line)
+                                if(isTMMS != None):
+                                    try:
+                                        logging(summary, ''+line)
+                                    except:
+                                        # Encoding error, cant store its value in a .txt file
+                                        pass
+                        
 
 # WC3 finding error
 def findErrorWC3(fileName,num,line,summary):
@@ -108,7 +130,6 @@ def findErrorWC3(fileName,num,line,summary):
     
     if(isFound != None):
         result = re.search('(ERROR|ERR)|(process_down|Fcode)|(ret:?(\[?0x[A-Za-z0-9]{8}\]?))+', line) # Search for error.
-        #print('found match [result]: '+ str(result) +'\n')
         
         if(result != None):
             result = re.search('(ret):?(\[?0x00000000\])+',line)
@@ -117,14 +138,10 @@ def findErrorWC3(fileName,num,line,summary):
                 hasError = True
             else:
                 hasError = False
-            #print('Line: '+ line +'\n')
-            #print('found match [result]: '+ str(isError) +'\n')
-        
     
     if(hasError == True):
-        print('LINE:['+ str(num+1) +']\n'+ line)
-        output_summary('>filename: '+ fileName +' line:['+ str(num+1) +']\n '+ line, '>filename: '+ fileName +' / line:['+ str(num+1) +']')
-        summary.write('\nLINE:['+ str(num+1) +']\n'+ line)
+        logging(summary, '\nline:['+ str(num+1) +'] '+ line)
+        output_summary('>filename: '+ fileName +' line:['+ str(num) +']\n '+ line, '>filename: '+ fileName +' / line:['+ str(num) +']')
         return True
     else:
         return False
@@ -156,17 +173,15 @@ def findErrorWC4(fileName,num,line,summary):
 
 
     if( isExistERR != None or isError == True ): #If found store here
-        summary.write('\nLINE:['+ str(num+1) +']\n'+ line)
-        print('LINE:['+ str(num+1) +']\n'+ line)
+        logging(summary, '\nline:['+ str(num+1) +'] '+ line)
+        output_summary('>filename: '+ fileName +' line:['+ str(num) +']\n '+ line, '>filename: '+ fileName +' / line:['+ str(num) +']')
         return True
 
 
 # Filter all files for errors related to component
 def findError(listOfFiles,summary,arch):
     for file in listOfFiles:
-        summary.write('\nSearching filename: '+ file)
-        print('Searching filename: '+ file)
-
+        logging(summary, '\nSearching filename: '+ file)
         #get only the file name
         fileName = file[file.rfind("\\"):]
         fileName = fileName[1:]
@@ -174,7 +189,6 @@ def findError(listOfFiles,summary,arch):
         isErrorFound = False
 
         with io.open(file, 'r', encoding='ISO-8859-1') as f:
-            text = f.readline()
             for num, line in enumerate(f, 1): # Line per line checking of code.
                 if( WC3 == arch ):
                     isFound = findErrorWC3(fileName,num,line,summary)
@@ -187,11 +201,9 @@ def findError(listOfFiles,summary,arch):
                     print("Do Nothing")    
         
         if( isErrorFound == False ):
-            print("****No Errors Found****\n\n")
-            summary.write("****No Errors Found****\n\n")        
+            logging(summary, '****No Errors Found****\n\n')  
         else:
-            print("\n\n")
-            summary.write("\n\n")
+            logging(summary, '\n\n')
             
 
 
@@ -227,37 +239,40 @@ def exec(arch,dirLog,newDirLog,summary,logFileName):
             'rmnt_log_comm.log',
             'rmnt_log_dv_exec.log',
             'rmnt_log_exec.log',
-            'rmnt_log_fcall.log'
+            'rmnt_log_fcall.log',
+            #rebooting log rearding import/export function
+            'BeforeRestart_RMNT.log',
+            #FW Updating log
+            'mnt_app_fwupdate.log'
             ]
 
     else:
         print("Do Nothing")
    
     #Extract all tar.gz related to component
-    summary.write('\n\nExtracting files...')
-    print('\n\nExtracting files...')
+    logging(summary, '\n\nExtracting files...')
     extract(newDirLog,summary,tarList_RMNT)
-    summary.write('\nExtracted to -> files\debug_log\RMNT_EXTRACTED')
-    print('Extracted to -> files\debug_log\RMNT_EXTRACTED')
+    logging(summary, '\nExtracted to -> files\debug_log\RMNT_EXTRACTED')
 
+    # Get TMMS Data
+    logging(summary, '\n\nGetting TMMS ME Data...\n')
+    getME_TMMS_DATA(newDirLog, summary)
+    
     # Get all related files of RMNT component
     listOfFiles = list() #container
-    summary.write('\n\nGetting all related files of the component...')
-    print('\n\nGetting all related files of the component...')
+    logging(summary, '\n\nGetting all related files of the component...')
     getfiles(newDirLog,summary,fileList_RMNT,listOfFiles)
 
     # Filter all files for errors related to component
-    summary.write('\n\nSearching for errors...')
-    print('\n\nSearching for errors...')
+    logging(summary, '\n\nSearching for errors...')
     findError(listOfFiles,summary,arch)
 
-    print('*********************** LOG SUMMARY ***********************\n')
+    logging(summary, '*********************** LOG SUMMARY ***********************')
     for i in output:
 
         if len(output[i][items]) != 0:
-            print('==============================================')
-            print(''+i+ ': '+str(output[i][description]) + '\n')
-            for item in output[i][items]: 
-                print(str(item[0]))
-
-    print('*********************** END LOG SUMMARY ***********************')
+            logging(summary, '\n==============================================\n')
+            logging(summary, ''+i+ ': '+str(output[i][description]) + '\n')
+            for item in output[i][items]:
+                logging(summary, str(item[0])+'\n')
+    logging(summary, '\n*********************** END LOG SUMMARY ***********************')
